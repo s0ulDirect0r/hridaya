@@ -123,14 +123,14 @@ export function PracticeSession() {
               <p className="text-center text-stone-500 text-sm">— {aspiration.source}</p>
 
               <p className="text-stone-600 text-center">
-                Take a moment to genuinely generate this aspiration.
+                Speak these words, and feel how they land in your system. What does this evoke? Contemplate this aspiration, and proceed when you are ready.
               </p>
 
               <button
                 onClick={() => setStep('practice')}
                 className="w-full py-3 bg-stone-800 text-stone-50 rounded hover:bg-stone-700 transition-colors"
               >
-                I have generated the aspiration
+                Continue
               </button>
             </div>
           )}
