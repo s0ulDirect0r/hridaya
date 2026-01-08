@@ -257,7 +257,7 @@ export function PracticeSession() {
               </p>
 
               <div className="text-stone-500">
-                Current streak: {streak + 1} day{streak > 0 ? 's' : ''}
+                Current streak: {streak} day{streak !== 1 ? 's' : ''}
               </div>
 
               <button
