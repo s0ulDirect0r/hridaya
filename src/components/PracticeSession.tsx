@@ -1,42 +1,48 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useStore } from '@/lib/store';
-import { getRandomPractice, aspirations, dedications } from '@/lib/practices';
-import { formatNode } from '@/lib/types';
+import { useData } from '@/lib/data-context';
+import { practices, aspirations, dedications } from '@/lib/practices';
+import { formatNode, nodeId } from '@/lib/types';
 import type { Practice } from '@/lib/types';
 
 type SessionStep = 'aspiration' | 'practice' | 'reflection' | 'dedication' | 'complete';
 type TimerState = 'idle' | 'running' | 'complete';
 
-export function PracticeSession() {
+interface PracticeSessionProps {
+  practiceId: string;
+  onComplete: () => void;
+}
+
+export function PracticeSession({ practiceId, onComplete }: PracticeSessionProps) {
   const [step, setStep] = useState<SessionStep>('aspiration');
-  const [practice, setPractice] = useState<Practice | null>(null);
   const [reflection, setReflection] = useState('');
   const [selectedPrompt, setSelectedPrompt] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [newStreak, setNewStreak] = useState<number | null>(null);
 
   // Timer state
   const [timerState, setTimerState] = useState<TimerState>('idle');
   const [secondsRemaining, setSecondsRemaining] = useState(0);
 
-  const currentNode = useStore((state) => state.currentNode);
-  const streak = useStore((state) => state.streak);
-  const recordSession = useStore((state) => state.recordSession);
+  const { profile, recordSession } = useData();
+  const streak = profile?.streak ?? 0;
 
-  // Pick a random practice and aspiration/dedication on mount
+  // Find the practice by ID
+  const practice = practices.find((p) => p.id === practiceId) ?? null;
+
+  // Pick a random aspiration/dedication on mount
   const [aspiration] = useState(() => aspirations[Math.floor(Math.random() * aspirations.length)]);
   const [dedication] = useState(() => dedications[Math.floor(Math.random() * dedications.length)]);
 
   useEffect(() => {
-    const p = getRandomPractice(currentNode);
-    setPractice(p);
-    if (p && p.reflectionPrompts.length > 0) {
-      setSelectedPrompt(p.reflectionPrompts[Math.floor(Math.random() * p.reflectionPrompts.length)]);
+    if (practice && practice.reflectionPrompts.length > 0) {
+      setSelectedPrompt(practice.reflectionPrompts[Math.floor(Math.random() * practice.reflectionPrompts.length)]);
     }
-    if (p && p.duration) {
-      setSecondsRemaining(p.duration * 60);
+    if (practice && practice.duration) {
+      setSecondsRemaining(practice.duration * 60);
     }
-  }, [currentNode]);
+  }, [practice]);
 
   // Timer countdown
   useEffect(() => {
@@ -68,26 +74,28 @@ export function PracticeSession() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (practice && reflection.trim()) {
-      recordSession({
-        date: new Date().toISOString().split('T')[0],
-        practiceId: practice.id,
-        reflection: reflection.trim(),
-      });
+      setSaving(true);
+      const updatedStreak = await recordSession(practice.id, reflection.trim());
+      setNewStreak(updatedStreak);
+      setSaving(false);
       setStep('complete');
     }
   };
 
-  // No practice available for this node
+  // No practice found
   if (!practice && step !== 'complete') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-50 p-8">
         <div className="max-w-xl text-center space-y-4">
-          <h2 className="text-xl text-stone-800">No practices available yet</h2>
-          <p className="text-stone-600">
-            Practices for {formatNode(currentNode)} are still being curated.
-          </p>
+          <h2 className="text-xl text-stone-800">Practice not found</h2>
+          <button
+            onClick={onComplete}
+            className="px-6 py-3 bg-stone-200 text-stone-800 rounded hover:bg-stone-300 transition-colors"
+          >
+            Return to Dashboard
+          </button>
         </div>
       </div>
     );
@@ -142,7 +150,7 @@ export function PracticeSession() {
                 <p className="text-sm text-stone-500 uppercase tracking-wide">Practice</p>
                 <h2 className="text-xl text-stone-800">{practice.title}</h2>
                 <p className="text-sm text-stone-500">
-                  {formatNode(currentNode)} • {practice.tradition}
+                  {formatNode(nodeId(practice.brahmavihara, practice.object))} • {practice.tradition}
                   {practice.duration && ` • ${practice.duration} min`}
                 </p>
               </div>
@@ -240,9 +248,10 @@ export function PracticeSession() {
 
               <button
                 onClick={handleComplete}
-                className="w-full py-3 bg-stone-800 text-stone-50 rounded hover:bg-stone-700 transition-colors"
+                disabled={saving}
+                className="w-full py-3 bg-stone-800 text-stone-50 rounded hover:bg-stone-700 transition-colors disabled:bg-stone-400"
               >
-                Complete Session
+                {saving ? 'Saving...' : 'Complete Session'}
               </button>
             </div>
           )}
@@ -257,14 +266,14 @@ export function PracticeSession() {
               </p>
 
               <div className="text-stone-500">
-                Current streak: {streak} day{streak !== 1 ? 's' : ''}
+                Current streak: {newStreak ?? streak} day{(newStreak ?? streak) !== 1 ? 's' : ''}
               </div>
 
               <button
-                onClick={() => window.location.reload()}
+                onClick={onComplete}
                 className="px-6 py-3 bg-stone-200 text-stone-800 rounded hover:bg-stone-300 transition-colors"
               >
-                Return
+                Return to Dashboard
               </button>
             </div>
           )}

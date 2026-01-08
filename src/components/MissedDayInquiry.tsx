@@ -1,17 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import { useStore } from '@/lib/store';
+import { useData } from '@/lib/data-context';
 
 export function MissedDayInquiry() {
   const [response, setResponse] = useState('');
-  const recordMissedDay = useStore((state) => state.recordMissedDay);
-  const streak = useStore((state) => state.streak);
+  const [saving, setSaving] = useState(false);
+  const { profile, recordMissedDay } = useData();
+  const streak = profile?.streak ?? 0;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (response.trim()) {
-      recordMissedDay(response.trim());
-      window.location.reload();
+      setSaving(true);
+      await recordMissedDay(response.trim());
+      setSaving(false);
     }
   };
 
@@ -50,10 +52,10 @@ export function MissedDayInquiry() {
 
           <button
             onClick={handleSubmit}
-            disabled={!response.trim()}
+            disabled={!response.trim() || saving}
             className="w-full py-3 bg-stone-800 text-stone-50 rounded hover:bg-stone-700 transition-colors disabled:bg-stone-300 disabled:cursor-not-allowed"
           >
-            Continue to Practice
+            {saving ? 'Saving...' : 'Continue to Practice'}
           </button>
         </div>
 

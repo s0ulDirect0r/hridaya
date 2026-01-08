@@ -1,17 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { useStore } from '@/lib/store';
+import { useData } from '@/lib/data-context';
 
 export function VowFlow() {
-  const [vow, setVow] = useState('');
+  const [vow, setVowText] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const saveVow = useStore((state) => state.setVow);
+  const [saving, setSaving] = useState(false);
+  const { setVow } = useData();
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (vow.trim()) {
-      saveVow(vow.trim());
+      setSaving(true);
+      await setVow(vow.trim());
       setSubmitted(true);
+      setSaving(false);
     }
   };
 
@@ -62,7 +65,7 @@ export function VowFlow() {
             <textarea
               id="vow"
               value={vow}
-              onChange={(e) => setVow(e.target.value)}
+              onChange={(e) => setVowText(e.target.value)}
               placeholder="Write your aspiration here..."
               className="w-full h-40 p-4 border border-stone-200 rounded resize-none focus:outline-none focus:ring-2 focus:ring-stone-400 text-stone-800"
             />
@@ -70,10 +73,10 @@ export function VowFlow() {
 
           <button
             onClick={handleSubmit}
-            disabled={!vow.trim()}
+            disabled={!vow.trim() || saving}
             className="w-full py-3 bg-stone-800 text-stone-50 rounded hover:bg-stone-700 transition-colors disabled:bg-stone-300 disabled:cursor-not-allowed"
           >
-            I commit to this practice
+            {saving ? 'Saving...' : 'I commit to this practice'}
           </button>
         </div>
 

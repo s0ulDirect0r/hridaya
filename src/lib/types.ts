@@ -26,13 +26,14 @@ export interface PracticeSession {
 
 export interface UserState {
   vow: string | null;
-  currentNode: string; // e.g., "metta-self"
+  currentNode: string; // Legacy, kept for compatibility
   completedNodes: string[];
   streak: number;
   lastPracticeDate: string | null; // ISO string
   sessions: PracticeSession[];
   missedDayReflections: Array<{ date: string; response: string }>;
   readinessGateResponses: Array<{ node: string; response: string; date: string }>;
+  trackProgress: Record<string, string>; // brahmavihara → current object
 }
 
 // Node ID format: "{brahmavihara}-{object}" e.g., "metta-self", "karuna-benefactor"
