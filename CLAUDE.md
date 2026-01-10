@@ -4,7 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Hridaya is a meditation practice app built on the four brahmaviharas (metta, karuna, mudita, upekkha). Users progress through each brahmavihara by practicing with different objects (self → benefactor → friend → neutral → difficult → all beings).
+Hridaya (Sanskrit: Heart) is an agent-integrated platform for cultivating **bodhicitta** — the awakening heart-mind, the aspiration to attain enlightenment for the benefit of all beings.
+
+The platform integrates multiple practice systems that support bodhicitta development:
+
+- **Brahmaviharas** (current): Heart qualities — metta, karuna, mudita, upekkha
+- **Zhan Zhuang / Qi Gong** (planned): Embodiment, grounding, energy cultivation
+- **Unified Mindfulness** (planned): Sensory clarity, concentration, equanimity
+- **Body Scanning** (planned): Somatic awareness, presence
+
+These aren't separate apps — they're complementary methods for integrated development across body, heart, and awareness. The unifying thread is bodhicitta.
+
+### Current Implementation (Brahmaviharas)
+
+Users progress through each brahmavihara by practicing with different objects (self → benefactor → friend → neutral → difficult → all beings).
 
 ## Commands
 
