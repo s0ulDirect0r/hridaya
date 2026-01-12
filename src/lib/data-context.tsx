@@ -1,39 +1,60 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  ReactNode,
+} from 'react';
 import { useAuth } from './auth';
 import {
-  Profile,
-  JournalEntry,
   fetchProfile,
-  fetchJournal,
-  setVow as setVowApi,
-  recordSession as recordSessionApi,
-  recordMissedDay as recordMissedDayApi,
-  passReadinessGate as passReadinessGateApi,
-  needsMissedDayInquiry,
-  getStage,
-  getSessions,
+  markOnboarded as markOnboardedApi,
+  fetchActiveExperiment,
+  fetchExperiments,
+  fetchRecentLogs,
+  fetchTodayLogs,
+  createExperiment as createExperimentApi,
+  completeExperiment as completeExperimentApi,
+  abandonExperiment as abandonExperimentApi,
+  createLogEntry as createLogEntryApi,
+  getExperimentProgress,
+  getTodayDateString,
 } from './data';
-import type { Brahmavihara, PracticeObject } from './types';
+import type {
+  Profile,
+  Experiment,
+  LogEntry,
+  CreateExperimentInput,
+  CreateLogEntryInput,
+  ExperimentProgress,
+} from './types';
 
 interface DataContextType {
+  // State
   profile: Profile | null;
-  journal: JournalEntry[];
+  activeExperiment: Experiment | null;
+  experiments: Experiment[];
+  recentLogs: LogEntry[];
+  todayLogs: LogEntry[];
   loading: boolean;
   error: string | null;
 
   // Computed
   isFirstTime: boolean;
-  needsMissedDayInquiry: boolean;
-  sessions: ReturnType<typeof getSessions>;
-  getStage: (brahmavihara: Brahmavihara) => PracticeObject;
+  hasActiveExperiment: boolean;
+  experimentProgress: ExperimentProgress | null;
 
   // Actions
-  setVow: (vow: string) => Promise<void>;
-  recordSession: (practiceId: string, reflection: string) => Promise<number>;
-  recordMissedDay: (response: string) => Promise<void>;
-  passReadinessGate: (brahmavihara: Brahmavihara, response: string) => Promise<PracticeObject>;
+  markOnboarded: () => Promise<void>;
+  createExperiment: (input: CreateExperimentInput) => Promise<Experiment>;
+  completeExperiment: (conclusion: string) => Promise<void>;
+  abandonExperiment: () => Promise<void>;
+  createLogEntry: (
+    input: Omit<CreateLogEntryInput, 'experiment_id'>
+  ) => Promise<LogEntry>;
   refresh: () => Promise<void>;
 }
 
@@ -42,25 +63,48 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [journal, setJournal] = useState<JournalEntry[]>([]);
+  const [activeExperiment, setActiveExperiment] = useState<Experiment | null>(
+    null
+  );
+  const [experiments, setExperiments] = useState<Experiment[]>([]);
+  const [recentLogs, setRecentLogs] = useState<LogEntry[]>([]);
+  const [todayLogs, setTodayLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!user) {
       setProfile(null);
-      setJournal([]);
+      setActiveExperiment(null);
+      setExperiments([]);
+      setRecentLogs([]);
+      setTodayLogs([]);
       setLoading(false);
       return;
     }
 
     try {
-      const [profileData, journalData] = await Promise.all([
+      const [profileData, activeExp, allExperiments, logs] = await Promise.all([
         fetchProfile(user.id),
-        fetchJournal(user.id),
+        fetchActiveExperiment(user.id),
+        fetchExperiments(user.id),
+        fetchRecentLogs(user.id, 50),
       ]);
+
       setProfile(profileData);
-      setJournal(journalData);
+      setActiveExperiment(activeExp);
+      setExperiments(allExperiments);
+      setRecentLogs(logs);
+
+      // Fetch today's logs if there's an active experiment
+      if (activeExp) {
+        const today = getTodayDateString();
+        const todayData = await fetchTodayLogs(activeExp.id, today);
+        setTodayLogs(todayData);
+      } else {
+        setTodayLogs([]);
+      }
+
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load data');
@@ -73,48 +117,65 @@ export function DataProvider({ children }: { children: ReactNode }) {
     refresh();
   }, [refresh]);
 
-  const setVow = async (vow: string) => {
+  const markOnboarded = async () => {
     if (!user) throw new Error('Not authenticated');
-    await setVowApi(user.id, vow);
+    await markOnboardedApi(user.id);
     await refresh();
   };
 
-  const recordSession = async (practiceId: string, reflection: string) => {
-    if (!user || !profile) throw new Error('Not authenticated');
-    const newStreak = await recordSessionApi(user.id, practiceId, reflection, profile);
-    await refresh();
-    return newStreak;
-  };
-
-  const recordMissedDay = async (response: string) => {
+  const createExperiment = async (input: CreateExperimentInput) => {
     if (!user) throw new Error('Not authenticated');
-    await recordMissedDayApi(user.id, response);
+    const experiment = await createExperimentApi(user.id, input);
+    await refresh();
+    return experiment;
+  };
+
+  const completeExperiment = async (conclusion: string) => {
+    if (!activeExperiment) throw new Error('No active experiment');
+    await completeExperimentApi(activeExperiment.id, conclusion);
     await refresh();
   };
 
-  const passReadinessGate = async (brahmavihara: Brahmavihara, response: string) => {
-    if (!user || !profile) throw new Error('Not authenticated');
-    const currentStage = getStage(profile, brahmavihara);
-    const nextStage = await passReadinessGateApi(user.id, brahmavihara, response, currentStage);
+  const abandonExperiment = async () => {
+    if (!activeExperiment) throw new Error('No active experiment');
+    await abandonExperimentApi(activeExperiment.id);
     await refresh();
-    return nextStage;
+  };
+
+  const createLogEntry = async (
+    input: Omit<CreateLogEntryInput, 'experiment_id'>
+  ) => {
+    if (!user) throw new Error('Not authenticated');
+    if (!activeExperiment) throw new Error('No active experiment');
+    const fullInput: CreateLogEntryInput = {
+      ...input,
+      experiment_id: activeExperiment.id,
+    };
+    const entry = await createLogEntryApi(user.id, fullInput);
+    await refresh();
+    return entry;
   };
 
   const value: DataContextType = {
     profile,
-    journal,
+    activeExperiment,
+    experiments,
+    recentLogs,
+    todayLogs,
     loading,
     error,
 
-    isFirstTime: profile?.vow === null,
-    needsMissedDayInquiry: profile ? needsMissedDayInquiry(profile, journal) : false,
-    sessions: getSessions(journal),
-    getStage: (brahmavihara) => profile ? getStage(profile, brahmavihara) : 'self',
+    isFirstTime: profile?.onboarded_at === null,
+    hasActiveExperiment: activeExperiment !== null,
+    experimentProgress: activeExperiment
+      ? getExperimentProgress(activeExperiment)
+      : null,
 
-    setVow,
-    recordSession,
-    recordMissedDay,
-    passReadinessGate,
+    markOnboarded,
+    createExperiment,
+    completeExperiment,
+    abandonExperiment,
+    createLogEntry,
     refresh,
   };
 

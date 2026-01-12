@@ -1,67 +1,29 @@
 'use client';
 
-import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data-context';
-import { getPracticesForNode } from '@/lib/practices';
-import {
-  BRAHMAVIHARAS_ORDER,
-  nodeId,
-  type Brahmavihara,
-  type PracticeObject,
-} from '@/lib/types';
-
-const OBJECT_LABELS: Record<PracticeObject, string> = {
-  self: 'Self',
-  benefactor: 'Benefactor',
-  friend: 'Dear Friend',
-  neutral: 'Neutral Person',
-  difficult: 'Difficult Person',
-  all: 'All Beings',
-};
+import { LOG_TYPE_LABELS, type LogEntry } from '@/lib/types';
 
 interface DashboardProps {
-  onStartPractice: (practiceId: string) => void;
+  onNewExperiment: () => void;
+  onLog: () => void;
   onViewJournal: () => void;
+  onChat: () => void;
 }
 
-const BRAHMAVIHARA_INFO: Record<Brahmavihara, { name: string; sanskrit: string; description: string }> = {
-  metta: {
-    name: 'Loving-kindness',
-    sanskrit: 'Mettā',
-    description: 'The wish for all beings to be happy',
-  },
-  karuna: {
-    name: 'Compassion',
-    sanskrit: 'Karuṇā',
-    description: 'The wish for all beings to be free from suffering',
-  },
-  mudita: {
-    name: 'Sympathetic Joy',
-    sanskrit: 'Muditā',
-    description: 'Rejoicing in the happiness of others',
-  },
-  upekkha: {
-    name: 'Equanimity',
-    sanskrit: 'Upekkhā',
-    description: 'Balanced acceptance of all beings equally',
-  },
-};
-
-export function Dashboard({ onStartPractice, onViewJournal }: DashboardProps) {
-  const [selectedBrahmavihara, setSelectedBrahmavihara] = useState<Brahmavihara | null>(null);
-
+export function Dashboard({
+  onNewExperiment,
+  onLog,
+  onViewJournal,
+  onChat,
+}: DashboardProps) {
   const { signOut } = useAuth();
-  const { profile, sessions, getStage } = useData();
-
-  const streak = profile?.streak ?? 0;
-  const vow = profile?.vow;
-
-  // Get practices for the current object in a brahmavihara
-  const getAvailablePractices = (brahmavihara: Brahmavihara) => {
-    const currentObject = getStage(brahmavihara);
-    return getPracticesForNode(nodeId(brahmavihara, currentObject));
-  };
+  const {
+    activeExperiment,
+    experimentProgress,
+    todayLogs,
+    recentLogs,
+  } = useData();
 
   return (
     <div className="min-h-screen flex flex-col bg-stone-50">
@@ -71,14 +33,17 @@ export function Dashboard({ onStartPractice, onViewJournal }: DashboardProps) {
           <h1 className="text-lg font-light text-stone-800">Hridaya</h1>
           <div className="flex items-center gap-4">
             <button
+              onClick={onChat}
+              className="text-sm text-stone-600 hover:text-stone-800 font-medium"
+            >
+              Reflect
+            </button>
+            <button
               onClick={onViewJournal}
               className="text-sm text-stone-600 hover:text-stone-800"
             >
-              Journal ({sessions.length})
+              Journal ({recentLogs.length})
             </button>
-            {streak > 0 && (
-              <span className="text-sm text-stone-600">🔥 {streak} day{streak !== 1 ? 's' : ''}</span>
-            )}
             <button
               onClick={() => signOut()}
               className="text-sm text-stone-400 hover:text-stone-600"
@@ -91,85 +56,165 @@ export function Dashboard({ onStartPractice, onViewJournal }: DashboardProps) {
 
       <main className="flex-1 p-8">
         <div className="max-w-2xl mx-auto space-y-8">
-          {/* Brahmaviharas grid */}
-          <div className="grid grid-cols-2 gap-4">
-            {BRAHMAVIHARAS_ORDER.map((brahmavihara) => {
-              const info = BRAHMAVIHARA_INFO[brahmavihara];
-              const isSelected = selectedBrahmavihara === brahmavihara;
-              const currentObject = getStage(brahmavihara);
-              const practiceCount = getAvailablePractices(brahmavihara).length;
-
-              return (
-                <button
-                  key={brahmavihara}
-                  onClick={() => setSelectedBrahmavihara(isSelected ? null : brahmavihara)}
-                  className={`p-6 rounded-lg text-left transition-all ${
-                    isSelected
-                      ? 'bg-stone-800 text-stone-50'
-                      : 'bg-white hover:bg-stone-100 text-stone-800'
-                  }`}
-                >
-                  <div className="space-y-1">
-                    <p className="text-xs uppercase tracking-wide opacity-70">{info.sanskrit}</p>
-                    <h3 className="font-medium">{info.name}</h3>
-                    <p className="text-sm opacity-70">{info.description}</p>
-                    <p className="text-xs mt-2 opacity-50">
-                      {OBJECT_LABELS[currentObject]} • {practiceCount} practice{practiceCount !== 1 ? 's' : ''}
+          {activeExperiment && experimentProgress ? (
+            <>
+              {/* Active Experiment Card */}
+              <div className="bg-white p-6 rounded-lg space-y-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-stone-500">
+                      Active Experiment
                     </p>
+                    <h2 className="text-xl font-medium text-stone-800 mt-1">
+                      {activeExperiment.title}
+                    </h2>
                   </div>
-                </button>
-              );
-            })}
-          </div>
+                  <span className="text-sm text-stone-500">
+                    Day {experimentProgress.currentDay} of{' '}
+                    {activeExperiment.duration_days}
+                  </span>
+                </div>
 
-          {/* Practice selection */}
-          {selectedBrahmavihara && (
-            <div className="bg-white p-6 rounded-lg space-y-4">
-              <h3 className="text-lg text-stone-800">
-                Available Practices — {BRAHMAVIHARA_INFO[selectedBrahmavihara].name}
-              </h3>
+                {/* Progress bar */}
+                <div className="w-full bg-stone-100 rounded-full h-2">
+                  <div
+                    className="bg-stone-800 h-2 rounded-full transition-all"
+                    style={{ width: `${experimentProgress.progress * 100}%` }}
+                  />
+                </div>
 
-              <div className="space-y-2">
-                {getAvailablePractices(selectedBrahmavihara).map((practice) => (
-                  <button
-                    key={practice.id}
-                    onClick={() => onStartPractice(practice.id)}
-                    className="w-full p-4 text-left bg-stone-50 hover:bg-stone-100 rounded transition-colors"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-stone-800 font-medium">{practice.title}</p>
-                        <p className="text-sm text-stone-500">
-                          {practice.type === 'formal' ? `${practice.duration} min` : 'Micro-practice'} • {practice.tradition}
-                        </p>
-                      </div>
-                      <span className="text-stone-400">→</span>
+                {/* Hypothesis */}
+                <p className="text-stone-600 text-sm">
+                  <span className="text-stone-400">Hypothesis: </span>
+                  {activeExperiment.hypothesis}
+                </p>
+
+                {/* Today's logs */}
+                <div className="pt-2 border-t border-stone-100">
+                  <p className="text-xs text-stone-400 mb-2">Today</p>
+                  {todayLogs.length > 0 ? (
+                    <div className="flex gap-2">
+                      {todayLogs.map((log) => (
+                        <span
+                          key={log.id}
+                          className="text-xs px-2 py-1 bg-stone-100 rounded text-stone-600"
+                        >
+                          {LOG_TYPE_LABELS[log.entry_type]}
+                        </span>
+                      ))}
                     </div>
+                  ) : (
+                    <p className="text-sm text-stone-500">No logs yet today</p>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={onLog}
+                    className="flex-1 py-3 bg-stone-800 text-white rounded hover:bg-stone-700 transition-colors"
+                  >
+                    Log Entry
                   </button>
-                ))}
-
-                {getAvailablePractices(selectedBrahmavihara).length === 0 && (
-                  <p className="text-stone-500 text-center py-4">
-                    No practices available yet for this stage.
-                  </p>
-                )}
+                  <button
+                    onClick={onChat}
+                    className="px-4 py-3 bg-stone-100 text-stone-700 rounded hover:bg-stone-200 transition-colors"
+                  >
+                    Reflect with Claude
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
 
-          {/* Vow reminder */}
-          {vow && (
-            <div className="text-center">
+              {/* Recent Logs Timeline */}
+              {recentLogs.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium text-stone-600">
+                    Recent Logs
+                  </h3>
+                  <div className="space-y-2">
+                    {recentLogs.slice(0, 5).map((log) => (
+                      <LogCard key={log.id} log={log} />
+                    ))}
+                    {recentLogs.length > 5 && (
+                      <button
+                        onClick={onViewJournal}
+                        className="w-full text-center text-sm text-stone-500 hover:text-stone-700 py-2"
+                      >
+                        View all logs →
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            /* No active experiment */
+            <div className="bg-white p-8 rounded-lg text-center space-y-6">
+              <div className="space-y-2">
+                <h2 className="text-xl font-medium text-stone-800">
+                  No active experiment
+                </h2>
+                <p className="text-stone-500">
+                  Ready to investigate your inner life?
+                </p>
+              </div>
+
               <button
-                onClick={() => {/* Could expand to show full vow */}}
-                className="text-sm text-stone-400 hover:text-stone-600"
+                onClick={onNewExperiment}
+                className="px-6 py-3 bg-stone-800 text-white rounded hover:bg-stone-700 transition-colors"
               >
-                Remember your vow
+                Start New Experiment
               </button>
+
+              <p className="text-xs text-stone-400">
+                Design a hypothesis, set your protocol, track your observations.
+              </p>
             </div>
           )}
         </div>
       </main>
+    </div>
+  );
+}
+
+function LogCard({ log }: { log: LogEntry }) {
+  // Format date for display
+  const dateStr = new Date(log.entry_date).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+
+  // Get rating values for display
+  const ratingEntries = Object.entries(log.ratings);
+
+  return (
+    <div className="bg-white p-4 rounded-lg border border-stone-100">
+      <div className="flex justify-between items-start">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs px-2 py-0.5 bg-stone-100 rounded text-stone-600">
+              {LOG_TYPE_LABELS[log.entry_type]}
+            </span>
+            <span className="text-xs text-stone-400">{dateStr}</span>
+          </div>
+          {log.notes && (
+            <p className="text-sm text-stone-600 line-clamp-2">{log.notes}</p>
+          )}
+        </div>
+        {ratingEntries.length > 0 && (
+          <div className="flex gap-2">
+            {ratingEntries.map(([key, value]) => (
+              <span
+                key={key}
+                className="text-sm font-medium text-stone-700"
+                title={key}
+              >
+                {value}/7
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
