@@ -8,6 +8,7 @@ export function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const { signIn, signUp } = useAuth();
@@ -15,16 +16,44 @@ export function Auth() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     setLoading(true);
 
-    const { error } = mode === 'signin'
-      ? await signIn(email, password)
-      : await signUp(email, password);
-
-    if (error) {
-      setError(error.message);
+    if (mode === 'signin') {
+      const { error } = await signIn(email, password);
+      if (error) {
+        setError(formatError(error.message));
+      }
+    } else {
+      const { error } = await signUp(email, password);
+      if (error) {
+        setError(formatError(error.message));
+      } else {
+        setSuccess('Check your email to confirm your account, then sign in.');
+        setMode('signin');
+      }
     }
     setLoading(false);
+  };
+
+  // Make Supabase error messages more user-friendly
+  const formatError = (message: string): string => {
+    if (message.includes('Invalid login credentials')) {
+      return 'Invalid email or password. Please try again.';
+    }
+    if (message.includes('Email not confirmed')) {
+      return 'Please check your email and click the confirmation link first.';
+    }
+    if (message.includes('User already registered')) {
+      return 'An account with this email already exists. Try signing in.';
+    }
+    if (message.includes('Password should be at least')) {
+      return 'Password must be at least 6 characters.';
+    }
+    if (message.includes('invalid')) {
+      return 'Please check your email address and try again.';
+    }
+    return message;
   };
 
   return (
@@ -66,7 +95,15 @@ export function Auth() {
           </div>
 
           {error && (
-            <p className="text-red-600 text-sm">{error}</p>
+            <div className="p-3 bg-red-50 border border-red-200 rounded">
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+          )}
+
+          {success && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded">
+              <p className="text-green-700 text-sm">{success}</p>
+            </div>
           )}
 
           <button
@@ -74,7 +111,13 @@ export function Auth() {
             disabled={loading}
             className="w-full py-3 bg-stone-800 text-stone-50 rounded hover:bg-stone-700 transition-colors disabled:bg-stone-400"
           >
-            {loading ? '...' : mode === 'signin' ? 'Sign In' : 'Sign Up'}
+            {loading
+              ? mode === 'signin'
+                ? 'Signing in...'
+                : 'Creating account...'
+              : mode === 'signin'
+              ? 'Sign In'
+              : 'Sign Up'}
           </button>
 
           <p className="text-center text-sm text-stone-500">
@@ -83,7 +126,11 @@ export function Auth() {
                 No account?{' '}
                 <button
                   type="button"
-                  onClick={() => setMode('signup')}
+                  onClick={() => {
+                    setMode('signup');
+                    setError(null);
+                    setSuccess(null);
+                  }}
                   className="text-stone-800 hover:underline"
                 >
                   Sign up
@@ -94,7 +141,11 @@ export function Auth() {
                 Have an account?{' '}
                 <button
                   type="button"
-                  onClick={() => setMode('signin')}
+                  onClick={() => {
+                    setMode('signin');
+                    setError(null);
+                    setSuccess(null);
+                  }}
                   className="text-stone-800 hover:underline"
                 >
                   Sign in

@@ -239,7 +239,10 @@ export async function fetchTodayLogs(
 // ============================================================================
 
 export function getExperimentProgress(experiment: Experiment): ExperimentProgress {
-  const startDate = new Date(experiment.start_date);
+  // Parse date string as local time (not UTC) by splitting components
+  const [year, month, day] = experiment.start_date.split('-').map(Number);
+  const startDate = new Date(year, month - 1, day); // month is 0-indexed
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   startDate.setHours(0, 0, 0, 0);
