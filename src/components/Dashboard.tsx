@@ -3,6 +3,7 @@
 import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data-context';
 import { LOG_TYPE_LABELS, type LogEntry } from '@/lib/types';
+import { ExperimentChart } from './ExperimentChart';
 
 interface DashboardProps {
   onNewExperiment: () => void;
@@ -124,6 +125,17 @@ export function Dashboard({
                   </button>
                 </div>
               </div>
+
+              {/* Metrics Chart */}
+              {recentLogs.length > 0 && (
+                <div className="bg-white p-6 rounded-lg">
+                  <ExperimentChart
+                    logs={recentLogs}
+                    metrics={activeExperiment.metrics}
+                    title="Metric Trends"
+                  />
+                </div>
+              )}
 
               {/* Recent Logs Timeline */}
               {recentLogs.length > 0 && (
