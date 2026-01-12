@@ -4,20 +4,20 @@ import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data-context';
 import { Auth } from '@/components/Auth';
-import { VowFlow } from '@/components/VowFlow';
-import { MissedDayInquiry } from '@/components/MissedDayInquiry';
+import { OnboardingFlow } from '@/components/OnboardingFlow';
 import { Dashboard } from '@/components/Dashboard';
-import { PracticeSession } from '@/components/PracticeSession';
+import { CreateExperiment } from '@/components/CreateExperiment';
+import { LogForm } from '@/components/LogForm';
 import { Journal } from '@/components/Journal';
+import { Chat } from '@/components/Chat';
 
-type View = 'dashboard' | 'practice' | 'journal';
+type View = 'dashboard' | 'create-experiment' | 'log' | 'journal' | 'chat';
 
 export default function Home() {
   const [view, setView] = useState<View>('dashboard');
-  const [selectedPracticeId, setSelectedPracticeId] = useState<string | null>(null);
 
   const { user, loading: authLoading } = useAuth();
-  const { loading: dataLoading, isFirstTime, needsMissedDayInquiry } = useData();
+  const { loading: dataLoading, isFirstTime } = useData();
 
   // Loading state
   if (authLoading || (user && dataLoading)) {
@@ -33,14 +33,29 @@ export default function Home() {
     return <Auth />;
   }
 
-  // First time user - collect vow
+  // First time user - onboarding
   if (isFirstTime) {
-    return <VowFlow />;
+    return <OnboardingFlow />;
   }
 
-  // Missed day - inquiry before practice
-  if (needsMissedDayInquiry) {
-    return <MissedDayInquiry />;
+  // Create experiment view
+  if (view === 'create-experiment') {
+    return (
+      <CreateExperiment
+        onComplete={() => setView('dashboard')}
+        onCancel={() => setView('dashboard')}
+      />
+    );
+  }
+
+  // Log entry view
+  if (view === 'log') {
+    return (
+      <LogForm
+        onComplete={() => setView('dashboard')}
+        onCancel={() => setView('dashboard')}
+      />
+    );
   }
 
   // Journal view
@@ -48,27 +63,18 @@ export default function Home() {
     return <Journal onBack={() => setView('dashboard')} />;
   }
 
-  // Practice session
-  if (view === 'practice' && selectedPracticeId) {
-    return (
-      <PracticeSession
-        practiceId={selectedPracticeId}
-        onComplete={() => {
-          setSelectedPracticeId(null);
-          setView('dashboard');
-        }}
-      />
-    );
+  // Chat view
+  if (view === 'chat') {
+    return <Chat onBack={() => setView('dashboard')} />;
   }
 
   // Dashboard (default)
   return (
     <Dashboard
-      onStartPractice={(practiceId) => {
-        setSelectedPracticeId(practiceId);
-        setView('practice');
-      }}
+      onNewExperiment={() => setView('create-experiment')}
+      onLog={() => setView('log')}
       onViewJournal={() => setView('journal')}
+      onChat={() => setView('chat')}
     />
   );
 }
