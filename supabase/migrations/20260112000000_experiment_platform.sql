@@ -23,7 +23,7 @@ create table public.experiments (
   -- Duration
   duration_days integer not null check (duration_days > 0),
   start_date date not null,
-  end_date date generated always as (start_date + (duration_days - 1) * interval '1 day')::date stored,
+  end_date date generated always as (start_date + duration_days - 1) stored,
 
   -- Status
   status text not null default 'active' check (status in ('active', 'completed', 'abandoned')),
